@@ -1,0 +1,27 @@
+# Root
+node_modules
+.DS_Store
+.env
+.env.*
+*.log
+
+# Frontend
+frontend/.next
+frontend/.env.local
+frontend/.env.production
+frontend/.env.development
+frontend/node_modules
+
+# Backend
+backend/dist
+backend/.env
+backend/.env.local
+backend/.env.development
+backend/.env.production
+backend/node_modules
+backend/uploads
+
+# Editor
+.idea
+.vscode
+
