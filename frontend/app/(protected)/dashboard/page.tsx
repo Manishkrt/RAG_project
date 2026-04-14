@@ -13,6 +13,7 @@ type Doc = {
 };
 
 type ChatMessage = { role: string; content: string };
+type PendingDelete = { id: string; name: string };
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -22,7 +23,9 @@ export default function DashboardPage() {
   const [selectedDoc, setSelectedDoc] = useState<string>("all");
   const [chat, setChat] = useState<ChatMessage[]>([]);
   const [question, setQuestion] = useState("");
+  const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
   const messagesRef = useRef<HTMLDivElement | null>(null);
+  const purgeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -48,6 +51,14 @@ export default function DashboardPage() {
     return () => clearInterval(id);
   }, [docs]);
 
+  useEffect(() => {
+    return () => {
+      if (purgeTimerRef.current) {
+        clearTimeout(purgeTimerRef.current);
+      }
+    };
+  }, []);
+
   async function fetchDocs() {
     const { data } = await api.get("/api/docs");
     setDocs(data);
@@ -55,7 +66,27 @@ export default function DashboardPage() {
 
   async function removeDoc(id: string) {
     setBusy(true);
+    if (purgeTimerRef.current && pendingDelete) {
+      clearTimeout(purgeTimerRef.current);
+      purgeTimerRef.current = null;
+      await api.delete(`/api/docs/${pendingDelete.id}/purge`);
+      setPendingDelete(null);
+    }
+
+    const target = docs.find((d) => d._id === id);
     await api.delete(`/api/docs/${id}`);
+    const deletePayload = { id, name: target?.originalName || "document" };
+    setPendingDelete(deletePayload);
+
+    purgeTimerRef.current = setTimeout(async () => {
+      try {
+        await api.delete(`/api/docs/${id}/purge`);
+      } finally {
+        setPendingDelete((prev) => (prev?.id === id ? null : prev));
+        purgeTimerRef.current = null;
+      }
+    }, 10000);
+
     await fetchDocs();
     setBusy(false);
   }
@@ -107,6 +138,20 @@ export default function DashboardPage() {
     }
   }
 
+  async function undoDelete() {
+    if (!pendingDelete) return;
+    if (purgeTimerRef.current) {
+      clearTimeout(purgeTimerRef.current);
+      purgeTimerRef.current = null;
+    }
+    const id = pendingDelete.id;
+    setPendingDelete(null);
+    setBusy(true);
+    await api.post(`/api/docs/${id}/undo`);
+    await fetchDocs();
+    setBusy(false);
+  }
+
   return (
     <main className="h-screen p-6 flex flex-col gap-6 overflow-hidden">
       <header className="flex items-center justify-between">
@@ -123,6 +168,20 @@ export default function DashboardPage() {
           </button>
         </div>
       </header>
+
+      {pendingDelete && (
+        <div className="glass rounded-xl p-3 flex items-center justify-between">
+          <p className="text-sm text-slate-200">
+            Deleted <span className="font-semibold">{pendingDelete.name}</span>. Undo available for 10 seconds.
+          </p>
+          <button
+            onClick={undoDelete}
+            className="text-xs px-3 py-1 rounded bg-cyan-400 text-slate-900 font-semibold hover:bg-cyan-300"
+          >
+            Undo
+          </button>
+        </div>
+      )}
 
       <section className="grid md:grid-cols-3 gap-4 flex-1 overflow-hidden">
         <div className="glass p-5 rounded-xl md:col-span-1 space-y-3 h-full flex flex-col">
