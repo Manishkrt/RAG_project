@@ -20,4 +20,8 @@ export const config = {
   llmProvider: process.env.LLM_PROVIDER || "huggingface",
   llmModel: process.env.LLM_MODEL || "HuggingFaceH4/zephyr-7b-beta",
   groqApiKey: requireEnv("GROQ_API_KEY"),
+  cloudinaryCloudName: requireEnv("CLOUDINARY_CLOUD_NAME"),
+  cloudinaryApiKey: requireEnv("CLOUDINARY_API_KEY"),
+  cloudinaryApiSecret: requireEnv("CLOUDINARY_API_SECRET"),
+  cloudinaryFolder: process.env.CLOUDINARY_FOLDER || "doc-intel",
 };

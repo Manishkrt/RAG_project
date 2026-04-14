@@ -1,4 +1,3 @@
-import fs from "fs";
 import path from "path";
 import pdfParse from "pdf-parse";
 import { DocumentModel, IDocument } from "../models/Document.js";
@@ -57,25 +56,41 @@ function sanitize(text: string) {
     .trim();
 }
 
-async function extractText(filePath: string, mimeType?: string): Promise<string> {
+async function extractText(filePath: string, mimeType?: string, fileBuffer?: Buffer): Promise<string> {
+  const sourceBuffer = fileBuffer ?? (await readFileBuffer(filePath));
   const ext = path.extname(filePath).toLowerCase();
   if (mimeType?.includes("pdf") || ext === ".pdf") {
-    const data = await pdfParse(fs.readFileSync(filePath));
+    const data = await pdfParse(sourceBuffer);
     const clean = sanitize(data.text);
     if (clean.length < 80) return ""; // likely scanned or empty
     return clean;
   }
   // Fallback: assume UTF-8 text-like file
-  const buf = fs.readFileSync(filePath);
-  const clean = sanitize(buf.toString("utf8"));
+  const clean = sanitize(sourceBuffer.toString("utf8"));
   return clean.length < 40 ? "" : clean;
 }
 
-export async function enqueueForProcessing(doc: IDocument) {
+async function readFileBuffer(filePath: string): Promise<Buffer> {
+  if (/^https?:\/\//i.test(filePath)) {
+    const res = await fetch(filePath);
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        throw new Error(`Failed to download remote file: ${res.status}. Check Cloudinary delivery access/type settings.`);
+      }
+      throw new Error(`Failed to download remote file: ${res.status}`);
+    }
+    const arr = await res.arrayBuffer();
+    return Buffer.from(arr);
+  }
+  const fs = await import("fs");
+  return fs.readFileSync(filePath);
+}
+
+export async function enqueueForProcessing(doc: IDocument, sourceBuffer?: Buffer) {
   process.nextTick(async () => {
     try {
       await DocumentModel.updateOne({ _id: doc.id }, { status: "processing" });
-      const raw = await extractText(doc.storagePath, doc.mimeType);
+      const raw = await extractText(doc.storagePath, doc.mimeType, sourceBuffer);
       if (!raw) throw new Error("Empty or unsupported content (no extractable text)");
       const parts = chunkText(raw);
       if (!parts.length) throw new Error("No usable text chunks found");

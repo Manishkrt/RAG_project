@@ -17,14 +17,14 @@ Backend at `http://localhost:4000`, frontend at `http://localhost:3000`.
 Routes (frontend):
 - `/auth/login` — login
 - `/auth/register` — signup
-- `/dashboard` — upload/list/delete docs
-- `/chat` — chat with retrieval, scope filter, reset chat
+- `/dashboard` — upload/list/delete docs + chat (side by side)
 - `/` — redirects to login or dashboard based on token
 
 ## Deployment (Vercel + separate Node host)
 - Frontend: Vercel (set `NEXT_PUBLIC_API_BASE` to your backend URL in Vercel env).
 - Backend: any Node host (Render/Fly/Railway/Vercel serverless) with outbound HTTPS allowed. Env vars:
-  - `MONGO_URL`, `JWT_SECRET`, `CORS_ORIGIN`, `UPLOAD_DIR`
+  - `MONGO_URL`, `JWT_SECRET`, `CORS_ORIGIN`
+  - `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `CLOUDINARY_FOLDER`
   - `LLM_PROVIDER=groq`
   - `LLM_MODEL=llama-3.1-8b-instant` (or your Groq model)
   - `GROQ_API_KEY`
@@ -35,7 +35,7 @@ Routes (frontend):
 flowchart LR
   subgraph Ingest
     U[User] -->|upload| API[/Express upload/]
-    API --> FS[(Object storage/UPLOAD_DIR)]
+    API --> FS[(Cloudinary Storage)]
     API --> Q{{async enqueue}}
     Q --> PROC[Processor: extract -> chunk -> embed]
     PROC --> IDX[(Chunks + embeddings in Mongo)]
@@ -56,7 +56,9 @@ flowchart LR
 - `POST /api/auth/register|login` — JWT issuance.
 - `POST /api/docs/upload` — upload single file; enqueues processing.
 - `GET /api/docs` — list user documents.
-- `DELETE /api/docs/:id` — delete document.
+- `DELETE /api/docs/:id` — soft delete document (undo window).
+- `POST /api/docs/:id/undo` — restore recently deleted doc.
+- `DELETE /api/docs/:id/purge` — permanent delete (Cloudinary + DB).
 - `GET /api/chat/history` — last 100 messages.
 - `POST /api/chat/ask` — retrieval + answer with citations.
 
@@ -72,10 +74,12 @@ flowchart LR
 - Smart per-user isolation (userId filter on docs, chunks, chat, retrieval)
 - Scope filter in chat (choose a specific document)
 - Chat reset per user
+- Delete with undo window (soft delete, then purge)
 
 ## Design decisions
 - **TypeScript everywhere** for consistency.
 - **Local embeddings** via Xenova to avoid paid API limits; HF token only for model download.
+- **Cloud storage upload** via Cloudinary (works on Vercel/serverless where local filesystem is ephemeral).
 - **Background processing** via `process.nextTick` placeholder to keep uploads non-blocking; replace with worker/queue (BullMQ/SQS) in prod.
 - **Mongo-backed chunks** for simple local dev; can be swapped for vector DB.
 - **Tailwind** for fast UI theming; glassmorphism accents for clarity.
