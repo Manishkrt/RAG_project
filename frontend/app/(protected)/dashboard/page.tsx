@@ -24,6 +24,7 @@ export default function DashboardPage() {
   const [chat, setChat] = useState<ChatMessage[]>([]);
   const [question, setQuestion] = useState("");
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
+  const [undoSeconds, setUndoSeconds] = useState(10);
   const messagesRef = useRef<HTMLDivElement | null>(null);
   const purgeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -59,6 +60,15 @@ export default function DashboardPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!pendingDelete) return;
+    setUndoSeconds(10);
+    const interval = setInterval(() => {
+      setUndoSeconds((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [pendingDelete]);
+
   async function fetchDocs() {
     const { data } = await api.get("/api/docs");
     setDocs(data);
@@ -77,6 +87,7 @@ export default function DashboardPage() {
     await api.delete(`/api/docs/${id}`);
     const deletePayload = { id, name: target?.originalName || "document" };
     setPendingDelete(deletePayload);
+    setUndoSeconds(10);
 
     purgeTimerRef.current = setTimeout(async () => {
       try {
@@ -172,7 +183,7 @@ export default function DashboardPage() {
       {pendingDelete && (
         <div className="glass rounded-xl p-3 flex items-center justify-between">
           <p className="text-sm text-slate-200">
-            Deleted <span className="font-semibold">{pendingDelete.name}</span>. Undo available for 10 seconds.
+            Deleted <span className="font-semibold">{pendingDelete.name}</span>. Undo available for {undoSeconds} seconds.
           </p>
           <button
             onClick={undoDelete}

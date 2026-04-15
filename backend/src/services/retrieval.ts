@@ -1,5 +1,4 @@
 import { ChunkModel } from "../models/Chunk.js";
-import { config } from "../lib/config.js";
 import { logger } from "../lib/logger.js";
 import { generateAnswer } from "./llm.js";
 import { pipeline } from "@xenova/transformers";

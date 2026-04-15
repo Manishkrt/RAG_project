@@ -27,7 +27,7 @@ Answer:
         Authorization: `Bearer ${config.groqApiKey}`,
       },
       body: JSON.stringify({
-        model: "llama-3.1-8b-instant",
+        model: config.llmModel,
         messages: [
           { role: "user", content: fullPrompt }
         ],
