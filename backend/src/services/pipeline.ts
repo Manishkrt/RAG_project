@@ -3,7 +3,6 @@ import pdfParse from "pdf-parse";
 import { DocumentModel, IDocument } from "../models/Document.js";
 import { ChunkModel } from "../models/Chunk.js";
 import { logger } from "../lib/logger.js";
-import { config } from "../lib/config.js";
 import { pipeline } from "@xenova/transformers";
 
 function chunkText(text: string, size = 500) {
