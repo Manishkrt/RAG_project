@@ -231,7 +231,6 @@ export default function DashboardPage() {
               ></div>
             </div>
           )}
-          {busy && <p className="text-xs text-cyan-300">Working…</p>}
         </div>
 
         <div className="glass p-5 rounded-xl md:col-span-2 space-y-3 h-full flex flex-col overflow-hidden">
